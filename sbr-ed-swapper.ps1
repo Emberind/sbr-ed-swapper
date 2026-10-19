@@ -14,8 +14,6 @@ function Get-EdTimestamp {
         -show_chapters `
         "$path" | ConvertFrom-Json).chapters
 
-    Write-Host $chapters
-
     foreach ($chapter in $chapters) {
         $title = $chapter.tags.title
         if ($title.ToLower() -ne "credits") { continue }
@@ -41,40 +39,48 @@ function Export-Ed {
         Write-Error -Message "File not found '$path'" -ErrorAction Stop
     }
 
-    $leadTime = 1
-    $edTime = $(Get-EdTimestamp $path) - $leadTime
+    $edTime = $(Get-EdTimestamp $path)
 
-    $edLength = 90 + $leadTime
-    $songStartTime = 7.60 - $leadTime
-    $fadeOutDuration = 6.39
+    $edLength = 90
+    $songStartTime = 7.60
 
-    $fadeInDuration = 15.76 - $songStartTime
+    $songFadeInDuration = 15.76 - $songStartTime
+    $songFadeOutDuration = 6.39
+
+    $episodeFadeOutDuration = 0.2
+    $episodeFadeInDuration = 0.2
 
     ffmpeg `
-        -ss $edTime `
-        -t $edLength `
         -i "$path" `
+        `
         -ss $songStartTime `
         -t $edLength `
         -i "./Bon Jovi - Wanted Dead Or Alive.mp3" `
-        -af "afade=t=in:st=$($lead):d=$($fadeInDuration):curve=qsin,afade=t=out:st=$($edLength - $fadeOutDuration):d=$fadeOutDuration" `
-        -map 0:v `
-        -map 1:a `
+        `
+        -filter_complex (
+            "[0:a:0] " +
+            "afade=t=out:st=$($edTime - $episodeFadeOutDuration):d=$($episodeFadeOutDuration)" +
+            "[episode_audio];" +
+            "" +
+            "[0:a:0] " +
+            "afade=t=in:st=$($edTime + $edLength - $episodeFadeInDuration):d=$($episodeFadeInDuration) " +
+            "[postcredits_audio];" +
+            "" +
+            "[1:a] " +
+            "afade=t=in:d=$($songFadeInDuration):curve=qsin," +
+            "afade=t=out:st=$($edLength - $songFadeOutDuration):d=$songFadeOutDuration," +
+            "adelay=delays=$($edTime)s:all=1 " +
+            "[song_audio];" +
+            "" +
+            "[episode_audio] [song_audio] [postcredits_audio] " +
+            "amix=inputs=3:normalize=0 " +
+            "[spliced_audio]"
+        ) `
+        `
+        -map "0:v" `
         -c:v copy `
+        -map "[spliced_audio]" `
         "$outPath"
-}
-
-function Add-Ed {
-    param(
-        [Parameter(Mandatory=$true)][String]$path,
-        [Parameter(Mandatory=$true)][String]$outPath
-    )
-
-    if (-not (TestPath -Path $path -PathType Leaf)) {
-        Write-Error -Message "File not found '$path'" -ErrorAction Stop
-    }
-
-    $edTime = Get-EdTimestamp $path
 }
 
 function Main {
