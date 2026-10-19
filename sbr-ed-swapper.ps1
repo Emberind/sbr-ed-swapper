@@ -129,6 +129,14 @@ function Export-Ed {
             "-metadata:s:a:$audioStreamId", "language=$($audioStream.tags.language)",
             "-metadata:s:a:$audioStreamId", "title=""Altered ED"""
         )
+
+        if ($audioStream.tags.language -eq "jpn") {
+            $arguments += @("-disposition:a:$audioStreamIdx", "original")
+            $arguments += @("-disposition:a:$audioStreamId", "default")
+        } else {
+            $arguments += @("-disposition:a:$audioStreamIdx", "dub")
+            $arguments += @("-disposition:a:$audioStreamId", "dub")
+        }
     }
 
     $arguments += "$outPath"
