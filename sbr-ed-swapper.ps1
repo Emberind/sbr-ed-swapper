@@ -58,6 +58,8 @@ function Export-Ed {
         Write-Error -Message "File not found '$path'" -ErrorAction Stop
     }
 
+    $audioStreamsInfo = Get-AudioStreamsInfo $path
+
     $edTime = $(Get-EdTimestamp $path)
 
     $edLength = 90
@@ -69,37 +71,61 @@ function Export-Ed {
     $episodeFadeOutDuration = 0.2
     $episodeFadeInDuration = 0.2
 
-    ffmpeg `
-        -i "$path" `
-        `
-        -ss $songStartTime `
-        -t $edLength `
-        -i "./Bon Jovi - Wanted Dead Or Alive.mp3" `
-        `
-        -filter_complex (
-            "[0:a:0] " +
-            "afade=t=out:st=$($edTime - $episodeFadeOutDuration):d=$($episodeFadeOutDuration)" +
-            "[episode_audio];" +
-            "" +
-            "[0:a:0] " +
-            "afade=t=in:st=$($edTime + $edLength - $episodeFadeInDuration):d=$($episodeFadeInDuration) " +
-            "[postcredits_audio];" +
-            "" +
-            "[1:a] " +
+    $arguments = @()
+
+    $arguments += @(
+        "-i", $path,
+        "-ss", $songStartTime,
+        "-t", $edLength,
+        "-i", "./Bon Jovi - Wanted Dead Or Alive.mp3"
+    )
+
+    $complexFilterArguments = @(
+        "[1:a]",
+        (
             "afade=t=in:d=$($songFadeInDuration):curve=qsin," +
             "afade=t=out:st=$($edLength - $songFadeOutDuration):d=$songFadeOutDuration," +
-            "adelay=delays=$($edTime)s:all=1 " +
-            "[song_audio];" +
-            "" +
-            "[episode_audio] [song_audio] [postcredits_audio] " +
-            "amix=inputs=3:normalize=0 " +
-            "[spliced_audio]"
-        ) `
-        `
-        -map "0:v" `
-        -c:v copy `
-        -map "[spliced_audio]" `
-        "$outPath"
+            "adelay=delays=$($edTime)s:all=1,",
+            "asplit=$($audioStreamsInfo.Count)"
+        )
+    )
+    foreach ($audioStream in $audioStreamsInfo) {
+        $complexFilterArguments += "[song_audio_$($audioStream.index)]"
+    }
+    $complexFilterArguments[$complexFilterArguments.Count - 1] += ";"
+
+    foreach ($audioStream in $audioStreamsInfo) {
+        $audioStreamLabel = "0:$($audioStream.index)"
+
+        $complexFilterArguments += @(
+            "[$audioStreamLabel]",
+            "afade=t=out:st=$($edTime - $episodeFadeOutDuration):d=$episodeFadeOutDuration",
+            "[episode_audio_$($audioStream.index)];",
+
+            "[$audioStreamLabel]",
+            "afade=t=in:st=$($edTime + $edLength - $episodeFadeInDuration):d=$episodeFadeInDuration",
+            "[postcredits_audio_$($audioStream.index)];",
+
+            "[episode_audio_$($audioStream.index)]", "[song_audio_$($audioStream.index)]", "[postcredits_audio_$($audioStream.index)]",
+            "amix=inputs=3:normalize=0",
+            "[spliced_audio_$($audioStream.index)];"
+        )
+    }
+
+    $arguments += @(
+        "-filter_complex", $complexFilterArguments,
+        "-map", "0:v",
+        "-c:v", "copy"
+    )
+
+    foreach ($audioStream in $audioStreamsInfo) {
+        $arguments += @("-map", "[spliced_audio_$($audioStream.index)]")
+    }
+
+    $arguments += "$outPath"
+
+    Write-Host $arguments
+    &"ffmpeg" $arguments
 }
 
 function Main {
