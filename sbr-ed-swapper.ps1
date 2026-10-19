@@ -114,8 +114,9 @@ function Export-Ed {
 
     $arguments += @(
         "-filter_complex", $complexFilterArguments,
-        "-map", "0:v",
-        "-c:v", "copy"
+
+        "-c:0", "copy",
+        "-map", "0"
     )
 
     foreach ($audioStream in $audioStreamsInfo) {
