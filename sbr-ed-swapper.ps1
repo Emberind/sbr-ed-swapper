@@ -119,8 +119,15 @@ function Export-Ed {
         "-map", "0"
     )
 
-    foreach ($audioStream in $audioStreamsInfo) {
-        $arguments += @("-map", "[spliced_audio_$($audioStream.index)]")
+    for ($audioStreamIdx = 0; $audioStreamIdx -lt $audioStreamsInfo.Count; $audioStreamIdx++) {
+        $audioStream = $audioStreamsInfo[$audioStreamIdx]
+        $audioStreamId = $audioStreamsInfo.Count + $audioStreamIdx
+
+        $arguments += @(
+            "-map", "[spliced_audio_$($audioStream.index)]",
+            "-metadata:s:a:$audioStreamId", "language=$($audioStream.tags.language)",
+            "-metadata:s:a:$audioStreamId", "title=""Altered ED"""
+        )
     }
 
     $arguments += "$outPath"
