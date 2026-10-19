@@ -1,5 +1,7 @@
 *.mkv
 *.mp3
+*.flac
 
 episodes/
 output/
+music/

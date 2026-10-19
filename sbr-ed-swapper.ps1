@@ -1,5 +1,6 @@
 param(
-    [String]$Path,
+    [String]$EpisodePath,
+    [String]$SongPath,
     [String]$OutPath
 )
 
@@ -55,18 +56,23 @@ function Get-AudioStreamsInfo {
 
 function Add-SwappedEd {
     param(
-        [Parameter(Mandatory=$true)][String]$path,
+        [Parameter(Mandatory=$true)][String]$episodePath,
+        [Parameter(Mandatory=$true)][String]$songPath,
         [Parameter(Mandatory=$true)][String]$outPath
     )
 
-    if (-not (Test-Path -Path $path -PathType Leaf)) {
-        Write-Error -Message "File not found '$path'" -ErrorAction Stop
+    if (-not (Test-Path -Path $episodePath -PathType Leaf)) {
+        Write-Error -Message "Episode file not found '$episodePath'" -ErrorAction Stop
     }
 
-    $audioStreamsInfo = Get-AudioStreamsInfo $path
+    if (-not (Test-Path -Path $songPath -PathType Leaf)) {
+        Write-Error -Message "Song file not found '$songPath'" -ErrorAction Stop
+    }
+
+    $audioStreamsInfo = Get-AudioStreamsInfo $episodePath
 
     $edTimestampShift = -10 / 23.976
-    $edTime = $(Get-EdTimestamp $path) + $edTimestampShift
+    $edTime = $(Get-EdTimestamp $episodePath) + $edTimestampShift
 
     $edLength = 90
 
@@ -81,10 +87,10 @@ function Add-SwappedEd {
     $arguments = @()
 
     $arguments += @(
-        "-i", $path,
+        "-i", $episodePath,
         "-ss", $songStartTime,
         "-t", $edLength,
-        "-i", "./Bon Jovi - Wanted Dead Or Alive.mp3"
+        "-i", $songPath
     )
 
     $complexFilterArguments = @(
@@ -151,6 +157,6 @@ function Add-SwappedEd {
     &"ffmpeg" $arguments
 }
 
-if ($Path -ne "") {
-    Add-SwappedEd -Path $Path -OutPath $OutPath
+if ($EpisodePath -ne "") {
+    Add-SwappedEd -EpisodePath $EpisodePath -SongPath $SongPath -OutPath $OutPath
 }
