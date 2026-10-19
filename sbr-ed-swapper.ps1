@@ -65,11 +65,12 @@ function Add-SwappedEd {
 
     $audioStreamsInfo = Get-AudioStreamsInfo $path
 
-    $edTime = $(Get-EdTimestamp $path)
+    $edTimestampShift = -10 / 23.976
+    $edTime = $(Get-EdTimestamp $path) + $edTimestampShift
 
     $edLength = 90
 
-    $songStartTime = 7.60
+    $songStartTime = 7.18
     $songFadeInDuration = 15.76 - $songStartTime
     $songFadeOutDuration = 6.39
     $songVolume = 0.5
@@ -91,7 +92,7 @@ function Add-SwappedEd {
         (
             "afade=t=in:d=$($songFadeInDuration):curve=qsin:unity=$songVolume," +
             "afade=t=out:st=$($edLength - $songFadeOutDuration):d=$($songFadeOutDuration):unity=$songVolume," +
-            "adelay=delays=$($edTime)s:all=1,",
+            "adelay=delays=$($edTime * 1000):all=1,",
             "asplit=$($audioStreamsInfo.Count)"
         )
     )
