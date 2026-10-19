@@ -29,6 +29,25 @@ function Get-EdTimestamp {
     }
 }
 
+function Get-AudioStreamsInfo {
+    param(
+        [Parameter(Mandatory=$true)][String]$path
+    )
+
+    if (-not (Test-Path -Path $path -PathType Leaf)) {
+        Write-Error -Message "File not found '$path'" -ErrorAction Stop
+    }
+
+    return $((
+        ffprobe `
+        -v error `
+        -print_format json `
+        -select_streams a `
+        -show_streams `
+        "$path"
+    ) | ConvertFrom-Json).streams
+}
+
 function Export-Ed {
     param(
         [Parameter(Mandatory=$true)][String]$path,
