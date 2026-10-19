@@ -63,10 +63,11 @@ function Export-Ed {
     $edTime = $(Get-EdTimestamp $path)
 
     $edLength = 90
-    $songStartTime = 7.60
 
+    $songStartTime = 7.60
     $songFadeInDuration = 15.76 - $songStartTime
     $songFadeOutDuration = 6.39
+    $songVolume = 0.5
 
     $episodeFadeOutDuration = 0.2
     $episodeFadeInDuration = 0.2
@@ -83,8 +84,8 @@ function Export-Ed {
     $complexFilterArguments = @(
         "[1:a]",
         (
-            "afade=t=in:d=$($songFadeInDuration):curve=qsin," +
-            "afade=t=out:st=$($edLength - $songFadeOutDuration):d=$songFadeOutDuration," +
+            "afade=t=in:d=$($songFadeInDuration):curve=qsin:unity=$songVolume," +
+            "afade=t=out:st=$($edLength - $songFadeOutDuration):d=$($songFadeOutDuration):unity=$songVolume," +
             "adelay=delays=$($edTime)s:all=1,",
             "asplit=$($audioStreamsInfo.Count)"
         )
