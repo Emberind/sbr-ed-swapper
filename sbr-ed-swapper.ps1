@@ -1,3 +1,8 @@
+param(
+    [String]$Path,
+    [String]$OutPath
+)
+
 function Get-EdTimestamp {
     [OutputType([double])]
     param(
@@ -48,7 +53,7 @@ function Get-AudioStreamsInfo {
     ) | ConvertFrom-Json).streams
 }
 
-function Export-Ed {
+function Add-SwappedEd {
     param(
         [Parameter(Mandatory=$true)][String]$path,
         [Parameter(Mandatory=$true)][String]$outPath
@@ -145,8 +150,6 @@ function Export-Ed {
     &"ffmpeg" $arguments
 }
 
-function Main {
-    Export-Ed ./episodes/03.mkv ./test.mkv
+if ($Path -ne "") {
+    Add-SwappedEd -Path $Path -OutPath $OutPath
 }
-
-Main
