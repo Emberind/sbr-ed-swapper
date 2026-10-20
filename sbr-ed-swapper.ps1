@@ -14,10 +14,10 @@ class SongData {
 
 $global:SongDataDict = @{
     "wanted dead or alive" = [SongData]@{
-        StartTime = 7.18
-        FadeInDuration = 15.76 - 7.18
+        StartTime = 8.33
+        FadeInDuration = 15.76 - 8.33
         FadeOutDuration = 6.39
-        Volume = 0.5
+        Volume = 0.85
     }
 }
 
