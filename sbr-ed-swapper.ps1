@@ -32,7 +32,7 @@ function Get-EdTimestamp {
     }
 
     $chapters = $(ffprobe `
-        -v error `
+        -loglevel error `
         -print_format json `
         -show_chapters `
         "$path" | ConvertFrom-Json).chapters
@@ -61,14 +61,12 @@ function Get-AudioStreamsInfo {
         Write-Error -Message "File not found '$path'" -ErrorAction Stop
     }
 
-    return $((
-        ffprobe `
-        -v error `
+    return $(ffprobe `
+        -loglevel error `
         -print_format json `
         -select_streams a `
         -show_streams `
-        "$path"
-    ) | ConvertFrom-Json).streams
+        "$path" | ConvertFrom-Json).streams
 }
 
 function Add-SwappedEd {
@@ -108,9 +106,11 @@ function Add-SwappedEd {
     $episodeFadeOutDuration = 0.2
     $episodeFadeInDuration = 0.2
 
-    $arguments = @()
+    $episodeStreamId = 0
+    $songStreamId = 1
 
-    $arguments += @(
+
+    $arguments = @(
         "-i", $episodePath,
         "-ss", $songData.StartTime,
         "-t", $edLength,
@@ -118,10 +118,10 @@ function Add-SwappedEd {
     )
 
     $complexFilterArguments = @(
-        "[1:a]",
+        "[$($songStreamId):a]",
         (
-            "afade=t=in:d=$($songData.FadeInDuration):curve=qsin:unity=$($songData.Volume)," +
-            "afade=t=out:st=$($edLength - $songData.FadeOutDuration):d=$($songData.FadeOutDuration):unity=$($songData.Volume)," +
+            "afade=type=in:duration=$($songData.FadeInDuration):curve=qsin:unity=$($songData.Volume)," +
+            "afade=type=out:start_time=$($edLength - $songData.FadeOutDuration):duration=$($songData.FadeOutDuration):unity=$($songData.Volume)," +
             "adelay=delays=$($edTime * 1000):all=1,",
             "asplit=$($audioStreamsInfo.Count)"
         )
@@ -132,15 +132,15 @@ function Add-SwappedEd {
     $complexFilterArguments[$complexFilterArguments.Count - 1] += ";"
 
     foreach ($audioStream in $audioStreamsInfo) {
-        $audioStreamLabel = "0:$($audioStream.index)"
+        $audioStreamLabel = "$($episodeStreamId):$($audioStream.index)"
 
         $complexFilterArguments += @(
             "[$audioStreamLabel]",
-            "afade=t=out:st=$($edTime - $episodeFadeOutDuration):d=$episodeFadeOutDuration",
+            "afade=type=out:start_time=$($edTime - $episodeFadeOutDuration):duration=$episodeFadeOutDuration",
             "[episode_audio_$($audioStream.index)];",
 
             "[$audioStreamLabel]",
-            "afade=t=in:st=$($edTime + $edLength - $episodeFadeInDuration):d=$episodeFadeInDuration",
+            "afade=type=in:start_time=$($edTime + $edLength - $episodeFadeInDuration):duration=$episodeFadeInDuration",
             "[postcredits_audio_$($audioStream.index)];",
 
             "[episode_audio_$($audioStream.index)]", "[song_audio_$($audioStream.index)]", "[postcredits_audio_$($audioStream.index)]",
@@ -152,8 +152,8 @@ function Add-SwappedEd {
     $arguments += @(
         "-filter_complex", $complexFilterArguments,
 
-        "-c:0", "copy",
-        "-map", "0"
+        "-codec:$episodeStreamId", "copy",
+        "-map", "$episodeStreamId"
     )
 
     for ($audioStreamIdx = 0; $audioStreamIdx -lt $audioStreamsInfo.Count; $audioStreamIdx++) {
