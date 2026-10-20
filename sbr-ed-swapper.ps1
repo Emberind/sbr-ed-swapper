@@ -1,8 +1,25 @@
 param(
     [String]$EpisodePath,
     [String]$SongPath,
-    [String]$OutPath
+    [String]$OutPath,
+    [String]$SongName
 )
+
+class SongData {
+    [ValidateNotNull()][double]$StartTime
+    [ValidateNotNull()][double]$FadeInDuration
+    [ValidateNotNull()][double]$FadeOutDuration
+    [ValidateNotNull()][double]$Volume
+}
+
+$global:SongDataDict = @{
+    "wanted dead or alive" = [SongData]@{
+        StartTime = 7.18
+        FadeInDuration = 15.76 - 7.18
+        FadeOutDuration = 6.39
+        Volume = 0.5
+    }
+}
 
 function Get-EdTimestamp {
     [OutputType([double])]
@@ -58,7 +75,8 @@ function Add-SwappedEd {
     param(
         [Parameter(Mandatory=$true)][String]$episodePath,
         [Parameter(Mandatory=$true)][String]$songPath,
-        [Parameter(Mandatory=$true)][String]$outPath
+        [Parameter(Mandatory=$true)][String]$outPath,
+        [String]$songName = "Wanted Dead or Alive"
     )
 
     if (-not (Test-Path -Path $episodePath -PathType Leaf)) {
@@ -71,15 +89,21 @@ function Add-SwappedEd {
 
     $audioStreamsInfo = Get-AudioStreamsInfo $episodePath
 
+    $songData = $null
+    foreach ($name in $global:SongDataDict.Keys) {
+        if ($name -ne $songName.ToLower()) { continue }
+
+        $songData = $global:SongDataDict[$name.ToLower()]
+        break
+    }
+    if ($null -eq $songData) {
+        Write-Error -Message "Song not defined '$songName'" -ErrorAction Stop
+    }
+
     $edTimestampShift = -10 / 23.976
     $edTime = $(Get-EdTimestamp $episodePath) + $edTimestampShift
 
     $edLength = 90
-
-    $songStartTime = 7.18
-    $songFadeInDuration = 15.76 - $songStartTime
-    $songFadeOutDuration = 6.39
-    $songVolume = 0.5
 
     $episodeFadeOutDuration = 0.2
     $episodeFadeInDuration = 0.2
@@ -88,7 +112,7 @@ function Add-SwappedEd {
 
     $arguments += @(
         "-i", $episodePath,
-        "-ss", $songStartTime,
+        "-ss", $songData.StartTime,
         "-t", $edLength,
         "-i", $songPath
     )
@@ -96,8 +120,8 @@ function Add-SwappedEd {
     $complexFilterArguments = @(
         "[1:a]",
         (
-            "afade=t=in:d=$($songFadeInDuration):curve=qsin:unity=$songVolume," +
-            "afade=t=out:st=$($edLength - $songFadeOutDuration):d=$($songFadeOutDuration):unity=$songVolume," +
+            "afade=t=in:d=$($songData.FadeInDuration):curve=qsin:unity=$($songData.Volume)," +
+            "afade=t=out:st=$($edLength - $songData.FadeOutDuration):d=$($songData.FadeOutDuration):unity=$($songData.Volume)," +
             "adelay=delays=$($edTime * 1000):all=1,",
             "asplit=$($audioStreamsInfo.Count)"
         )
@@ -158,5 +182,5 @@ function Add-SwappedEd {
 }
 
 if ($EpisodePath -ne "") {
-    Add-SwappedEd -EpisodePath $EpisodePath -SongPath $SongPath -OutPath $OutPath
+    Add-SwappedEd -EpisodePath $EpisodePath -SongPath $SongPath -OutPath $OutPath -SongName $SongName
 }
