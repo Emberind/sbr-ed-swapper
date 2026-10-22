@@ -2,68 +2,102 @@ function_name = "Overwrite ED";
 function_description = "Replaces the ED with a different given one";
 
 require("karaskel");
-re = require("aegisub.re");
 
-local dialogueRe = re.compile(
-    "^Dialogue: ([^,]*),(\\d+):(\\d{2}):(\\d{2}).(\\d{2})\\d*,(\\d+):(\\d{2}):(\\d{2}).(\\d{2})\\d*,([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),(.*)$");
-local styleRe = re.compile(
-    "^Style: ([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),(.*)$");
+local dialogueRe = "Dialogue: ([^,]*),(%d+):(%d+):(%d+).(%d+),(%d+):(%d+):(%d+).(%d+),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),(.*)";
+local styleRe = "Style: ([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),(.*)";
 
-function get_line_object(string)
-    local class = re.split(string, ":")[1];
+function get_line_object(lineString)
+    local classEnd = string.find(lineString, ':');
+    if (classEnd == nil) then return end
+    local class = string.sub(lineString, 1, classEnd - 1);
 
     if class == "Dialogue" then
-        local data = dialogueRe:match(string);
+        local
+            layer,
+            start_time_h, start_time_m, start_time_s, start_time_c,
+            end_time_h, end_time_m, end_time_s, end_time_c,
+            style,
+            actor,
+            margin_l,
+            margin_r,
+            margin_v,
+            effect,
+            text
+            = lineString:match(dialogueRe);
 
         return {
             class = "dialogue",
-            raw = string,
+            raw = lineString,
             section = "[Events]",
             comment = false,
-            layer = tonumber(data[2]["str"]),
-            start_time = (((tonumber(data[3]["str"]) * 60 + tonumber(data[4]["str"])) * 60 + tonumber(data[5]["str"])) * 100 + tonumber(data[6]["str"])) * 10,
-            end_time = (((tonumber(data[7]["str"]) * 60 + tonumber(data[8]["str"])) * 60 + tonumber(data[9]["str"])) * 100 + tonumber(data[10]["str"])) * 10,
-            style = data[11]["str"],
-            actor = data[12]["str"],
-            margin_l = tonumber(data[13]["str"]),
-            margin_r = tonumber(data[14]["str"]),
-            margin_t = tonumber(data[15]["str"]),
-            margin_b = tonumber(data[15]["str"]),
-            effect = data[16]["str"],
+            layer = tonumber(layer),
+            start_time = (((tonumber(start_time_h) * 60 + tonumber(start_time_m)) * 60 + tonumber(start_time_s)) * 100 + tonumber(start_time_c)) * 10,
+            end_time = (((tonumber(end_time_h) * 60 + tonumber(end_time_m)) * 60 + tonumber(end_time_s)) * 100 + tonumber(end_time_c)) * 10,
+            style = style,
+            actor = actor,
+            margin_l = tonumber(margin_l),
+            margin_r = tonumber(margin_r),
+            margin_t = tonumber(margin_v),
+            margin_b = tonumber(margin_v),
+            effect = effect,
             userdata = nil,
-            text = data[17]["str"]
+            text = text
         };
     elseif class == "Style" then
-        local data = styleRe:match(string);
+        local
+            name,
+            fontname,
+            fontsize,
+            color1,
+            color2,
+            color3,
+            color4,
+            bold,
+            italic,
+            underline,
+            strikeout,
+            scale_x,
+            scale_y,
+            spacing,
+            angle,
+            borderstyle,
+            outline,
+            shadow,
+            align,
+            margin_l,
+            margin_r,
+            margin_v,
+            encoding
+            = lineString:match(styleRe);
 
         return {
             class = "style",
-            raw = string,
+            raw = lineString,
             section = "[V4+ Styles]",
-            name = data[2]["str"],
-            fontname = data[3]["str"],
-            fontsize = tonumber(data[4]["str"]),
-            color1 = data[5]["str"],
-            color2 = data[6]["str"],
-            color3 = data[7]["str"],
-            color4 = data[8]["str"],
-            bold = tonumber(data[9]["str"]) > 0,
-            italic = tonumber(data[10]["str"]) > 0,
-            underline = tonumber(data[11]["str"]) > 0,
-            strikeout = tonumber(data[12]["str"]) > 0,
-            scale_x = tonumber(data[13]["str"]),
-            scale_y = tonumber(data[14]["str"]),
-            spacing = tonumber(data[15]["str"]),
-            angle = tonumber(data[16]["str"]),
-            borderstyle = tonumber(data[17]["str"]),
-            outline = tonumber(data[18]["str"]),
-            shadow = tonumber(data[19]["str"]),
-            align = tonumber(data[20]["str"]),
-            margin_l = tonumber(data[21]["str"]),
-            margin_r = tonumber(data[22]["str"]),
-            margin_t = tonumber(data[23]["str"]),
-            margin_b = tonumber(data[23]["str"]),
-            encoding = tonumber(data[24]["str"]),
+            name = name,
+            fontname = fontname,
+            fontsize = tonumber(fontsize),
+            color1 = color1,
+            color2 = color2,
+            color3 = color3,
+            color4 = color4,
+            bold = tonumber(bold) > 0,
+            italic = tonumber(italic) > 0,
+            underline = tonumber(underline) > 0,
+            strikeout = tonumber(strikeout) > 0,
+            scale_x = tonumber(scale_x),
+            scale_y = tonumber(scale_y),
+            spacing = tonumber(spacing),
+            angle = tonumber(angle),
+            borderstyle = tonumber(borderstyle),
+            outline = tonumber(outline),
+            shadow = tonumber(shadow),
+            align = tonumber(align),
+            margin_l = tonumber(margin_l),
+            margin_r = tonumber(margin_r),
+            margin_t = tonumber(margin_v),
+            margin_b = tonumber(margin_v),
+            encoding = tonumber(encoding),
             relative_to = nil,
             vertical = nil
         };
