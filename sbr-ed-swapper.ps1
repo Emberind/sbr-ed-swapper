@@ -69,7 +69,7 @@ $global:SongDataDict = @{
         StartTime = 8.33
         FadeInDuration = 15.76 - 8.33
         FadeOutDuration = 6.39
-        Volume = 0.85
+        Volume = 0.8
         Fonts = @([FontConfig]::New("Maiden_Orange/MaidenOrange-Regular.ttf"))
         SubtitlePath = "./subs/Wanted Dead or Alive.ass"
     }
