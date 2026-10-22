@@ -162,6 +162,9 @@ function Add-SwappedEd {
 
         $arguments += @(
             "-map", "[spliced_audio_$($audioStream.index)]",
+            "-codec:a:$audioStreamIdx", "copy",
+            "-codec:a:$audioStreamId", "libvorbis",
+            "-qscale:a:$audioStreamId", 3,
             "-metadata:s:a:$audioStreamId", "language=$($audioStream.tags.language)",
             "-metadata:s:a:$audioStreamId", "title=""Altered ED"""
         )
