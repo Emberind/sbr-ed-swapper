@@ -273,6 +273,10 @@ function Add-SwappedEd {
         Write-Error -Message "Song file not found '$songPath'" -ErrorAction Stop
     }
 
+    if (Test-Path -Path $outPath -PathType Container) {
+        $outPath = Join-Path -Path $outPath -ChildPath (Split-Path -Path $episodePath -Leaf)
+    }
+
     $audioStreamsInfo = Get-AudioStreamsInfo $episodePath
 
     $songData = $null
@@ -410,5 +414,13 @@ function Add-SwappedEd {
 }
 
 if ($EpisodePath -ne "") {
-    Add-SwappedEd -EpisodePath $EpisodePath -SongPath $SongPath -OutPath $OutPath -SongName $SongName
+    if (Test-Path -Path $EpisodePath -PathType Leaf) {
+        Add-SwappedEd -EpisodePath $EpisodePath -SongPath $SongPath -OutPath $OutPath -SongName $SongName
+    } elseif (Test-Path -Path $EpisodePath -PathType Container) {
+        Get-ChildItem -Path $EpisodePath -Filter "*.mkv" | ForEach-Object {
+            Add-SwappedEd -EpisodePath $_.FullName -SongPath $SongPath -OutPath $OutPath -SongName $SongName
+        }
+    } else {
+        Write-Error "Path not valid '$EpisodePath'" -ErrorAction Stop
+    }
 }
