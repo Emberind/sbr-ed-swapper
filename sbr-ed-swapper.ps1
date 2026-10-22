@@ -61,6 +61,7 @@ class SongData {
     [ValidateNotNull()][double]$FadeOutDuration
     [ValidateNotNull()][double]$Volume
     [ValidateNotNull()][FontConfig[]]$Fonts
+    [ValidateNotNull()][String]$SubtitlePath
 }
 
 $global:SongDataDict = @{
@@ -70,6 +71,7 @@ $global:SongDataDict = @{
         FadeOutDuration = 6.39
         Volume = 0.85
         Fonts = @([FontConfig]::New("Maiden_Orange/MaidenOrange-Regular.ttf"))
+        SubtitlePath = "./subs/Wanted Dead or Alive.ass"
     }
 }
 
@@ -131,6 +133,106 @@ function Get-AudioStreamsInfo {
         "$path" | ConvertFrom-Json).streams
 }
 
+function Get-SubtitleStreamsInfo {
+    param(
+        [Parameter(Mandatory=$true)][String]$path
+    )
+
+    if (-not (Test-Path -Path $path -PathType Leaf)) {
+        Write-Error -Message "File not found '$path'" -ErrorAction Stop
+    }
+
+    return $(ffprobe `
+        -loglevel error `
+        -print_format json `
+        -select_streams s `
+        -show_streams `
+        "$path" | ConvertFrom-Json).streams
+}
+
+function Export-Subtitles {
+    param(
+        [Parameter(Mandatory=$true)][String]$path,
+        [Parameter(Mandatory=$true)][Object[]]$streams
+    )
+
+    if (-not (Test-Path -Path $path -PathType Leaf)) {
+        Write-Error -Message "File not found '$path'" -ErrorAction Stop
+    }
+
+    Remove-Item -Path "./.temp/subs" -Recurse -ErrorAction SilentlyContinue
+    New-Item -Path "./.temp/subs/" -ItemType Directory -Force | Out-Null
+
+    $arguments = @(
+        "-i", $path,
+        "-codec", "copy"
+    )
+
+    for ($streamIdx = 0; $streamIdx -lt $streams.Count; $streamIdx++) {
+        $stream = $streams[$streamIdx]
+        if ($stream.codec_name -ne "ass") { continue }
+
+        $arguments += @(
+            "-map", "0:s:$streamIdx",
+            "./.temp/subs/$($stream.tags.language)_$($stream.tags.title).ass"
+        )
+    }
+
+    &"ffmpeg" $arguments
+}
+
+function Write-AlteredSubtitle {
+    param(
+        [Parameter(Mandatory=$true)][String]$path,
+        [Parameter(Mandatory=$true)][SongData]$songData,
+        [Parameter(Mandatory=$true)][Double]$edTime
+    )
+
+    if (-not (Test-Path -Path $path -PathType Leaf)) {
+        Write-Warning -Message "File not found '$path'"
+        return
+    }
+
+    $fileName = Split-Path -Path $path -Leaf
+
+    $dialogObject = @{
+        "button" = 0
+        "values" = @{
+            "ed_start_time" = $edTime
+        }
+    }
+
+    $arguments = @(
+        "--automation", "./subs/scripts/overwrite-ed.lua",
+        "--dialog", (ConvertTo-Json -InputObject $dialogObject -Depth 2),
+        "--file", $songData.SubtitlePath,
+        $path,
+        "./.temp/altered_subs/$fileName",
+        "Overwrite ED"
+    )
+
+    Write-Host "aegisub-cli $arguments"
+    &"aegisub-cli" $arguments
+}
+
+function Write-AlteredSubtitles {
+    param(
+        [Parameter(Mandatory=$true)][String]$path,
+        [Parameter(Mandatory=$true)][SongData]$songData,
+        [Parameter(Mandatory=$true)][Double]$edTime,
+        [Parameter(Mandatory=$true)][Object[]]$streams
+    )
+
+    Export-Subtitles $path $streams
+
+    Remove-Item -Path "./.temp/altered_subs/" -Recurse -ErrorAction SilentlyContinue
+    New-Item -Path "./.temp/altered_subs/" -ItemType Directory -Force | Out-Null
+
+    Get-ChildItem "./.temp/subs/" | ForEach-Object {
+        Write-AlteredSubtitle $_.FullName $songData $edTime
+    }
+}
+
 function Export-Ed {
     param(
         [Parameter(Mandatory=$true)][String]$inPath,
@@ -190,11 +292,16 @@ function Add-SwappedEd {
 
     $edTime = Get-EdTimestamp $episodePath
 
+    $subtitleStreamsInfo = Get-SubtitleStreamsInfo $episodePath
+    Write-AlteredSubtitles $episodePath $songData $edTime $subtitleStreamsInfo
+
     $episodeFadeOutDuration = 0.2
     $episodeFadeInDuration = 0.2
 
     $episodeStreamId = 0
     $songStreamId = 1
+
+    $streamIdx = 0
 
     $arguments = @(
         "-i", $episodePath,
@@ -202,6 +309,17 @@ function Add-SwappedEd {
         "-t", $global:EdLength,
         "-i", $songPath
     )
+    $streamIdx += 2
+
+    $subtitleInputStreamsIdxStart = $streamIdx
+    for ($subtitleIdx = 0; $subtitleIdx -lt $subtitleStreamsInfo.Count; $subtitleIdx++) {
+        $stream = $subtitleStreamsInfo[$subtitleIdx]
+
+        $arguments += @(
+            "-i", "./.temp/altered_subs/$($stream.tags.language)_$($stream.tags.title).ass"
+        )
+        $streamIdx++
+    }
 
     $complexFilterArguments = @(
         "[$($songStreamId):a]",
@@ -239,6 +357,7 @@ function Add-SwappedEd {
         "-filter_complex", $complexFilterArguments,
 
         "-codec:$episodeStreamId", "copy",
+        "-codec:s", "copy",
         "-map", "$episodeStreamId"
     )
 
@@ -254,7 +373,7 @@ function Add-SwappedEd {
             "-qscale:a:$audioStreamId", 3,
 
             "-metadata:s:a:$audioStreamId", "language=$($audioStream.tags.language)",
-            "-metadata:s:a:$audioStreamId", "title=""Altered ED"""
+            "-metadata:s:a:$audioStreamId", "title=Altered ED"
         )
 
         if ($audioStream.tags.language -eq "jpn") {
@@ -266,6 +385,17 @@ function Add-SwappedEd {
         }
     }
 
+    for ($streamIdx = 0; $streamIdx -lt $subtitleStreamsInfo.Count; $streamIdx++) {
+        $stream = $subtitleStreamsInfo[$streamIdx]
+        $alteredSubtitleIdx = $subtitleStreamsInfo.Count + $streamIdx
+
+        $arguments += @(
+            "-map", ($subtitleInputStreamsIdxStart + $streamIdx),
+            "-metadata:s:s:$alteredSubtitleIdx", "language=$($stream.tags.language)",
+            "-metadata:s:s:$alteredSubtitleIdx", "title=[Altered ED] $($stream.tags.title)"
+        )
+    }
+
     $arguments += @("-metadata:s:t", "mimetype=application/x-truetype-font")
     foreach ($font in $songData.Fonts) {
         $arguments += @("-attach", "./fonts/$($font.Path)")
@@ -273,7 +403,7 @@ function Add-SwappedEd {
 
     $arguments += "$outPath"
 
-    Write-Host $arguments
+    Write-Host "ffmpeg $arguments"
     &"ffmpeg" $arguments
 }
 

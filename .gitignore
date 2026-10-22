@@ -3,6 +3,7 @@
 *.flac
 *.ttf
 
+.temp/
 episodes/
 output/
 music/
