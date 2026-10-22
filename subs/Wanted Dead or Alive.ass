@@ -1,0 +1,20 @@
+﻿[Script Info]
+ScriptType: v4.00+
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: None
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Wanted Dead or Alive,Maiden Orange,18,&H00A2D6E2,&H000000FF,&H00161C22,&H00000000,0,0,0,0,100,100,0,0,1,1.2,0,2,10,10,10,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:39.20,0:00:45.90,Wanted Dead or Alive,,0,0,0,,{\fad(100,200)\be(3)}It's all the same, only the names will change
+Dialogue: 0,0:00:45.90,0:00:51.67,Wanted Dead or Alive,,0,0,0,,{\fad(100,200)\be(3)}Every day it seems we're wastin' away
+Dialogue: 0,0:00:52.18,0:00:58.66,Wanted Dead or Alive,,0,0,0,,{\fad(100,200)\be(3)}Another place where the faces are so cold
+Dialogue: 0,0:00:58.66,0:01:04.89,Wanted Dead or Alive,,0,0,0,,{\fad(100,200)\be(3)}I'd drive all night just to get back home
+Dialogue: 0,0:01:04.89,0:01:06.90,Wanted Dead or Alive,,0,0,0,,{\fad(100,200)\be(3)}I'm a cowboy
+Dialogue: 0,0:01:08.11,0:01:11.41,Wanted Dead or Alive,,0,0,0,,{\fad(100,200)\be(3)}On a steel horse I ride
+Dialogue: 0,0:01:11.41,0:01:18.05,Wanted Dead or Alive,,0,0,0,,{\fad(100,200)\be(3)}I'm wanted dead or alive
+Dialogue: 0,0:01:18.05,0:01:25.91,Wanted Dead or Alive,,0,0,0,,{\fad(100,1000)\be(3)}Wanted dead or alive
