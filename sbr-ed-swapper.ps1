@@ -161,6 +161,7 @@ function Add-SwappedEd {
         $audioStreamId = $audioStreamsInfo.Count + $audioStreamIdx
 
         $arguments += @(
+            "-max_interleave_delta", 0,
             "-map", "[spliced_audio_$($audioStream.index)]",
             "-codec:a:$audioStreamIdx", "copy",
             "-codec:a:$audioStreamId", "libvorbis",
