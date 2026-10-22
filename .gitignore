@@ -1,7 +1,9 @@
 *.mkv
 *.mp3
 *.flac
+*.ttf
 
 episodes/
 output/
 music/
+fonts/

@@ -5,11 +5,62 @@ param(
     [String]$SongName
 )
 
+class FontConfig {
+    [ValidateNotNullOrEmpty()][string]$Path
+
+    FontConfig($path) {
+        $this.Path = $path
+    }
+
+    [void] Install() {
+        if (Test-Path -Path "./fonts/$($this.Path)" -PathType Leaf) { return }
+        Write-Host -ForegroundColor Blue "Downloading font ""$($this.Path)""..."
+
+        $family = $this.Path.Substring(0, $this.Path.IndexOf('/')).Replace('_', ' ')
+
+        $uri = "https://fonts.google.com/download/list?family=$($family.Replace(' ', '+'))"
+        $response = Invoke-WebRequest -Uri $uri
+
+        if ($response.StatusCode -ne 200) {
+            Write-Error "Failed to retrieve from metadata: $($response.StatusCode) - $($response.StatusDescription)" -ErrorAction Stop
+            return
+        }
+
+        $content = ConvertFrom-Json $response.Content.Substring($response.Content.IndexOf('{'))
+
+        $fileName = $this.Path.Substring($this.Path.IndexOf('/') + 1)
+        $fileRefs = $content.manifest.fileRefs
+        $fileRef = $fileRefs | Where-Object { $_.filename -eq $fileName }
+        if ($fileRef.Count -eq 0) {
+            Write-Error "Specific font file not found: $($response.Content)" -ErrorAction Stop
+        } elseif ($fileRef.Count -gt 1) {
+            Write-Error "More identically named files found: $($response.Content)" -ErrorAction Stop
+        }
+        $fileRef = $fileRef[0]
+
+        $files = $content.manifest.files
+        foreach ($file in $files) {
+            $directory = "./fonts/$($family.Replace(' ', '_'))"
+            New-Item -Path $directory -ItemType Directory -Force | Out-Null
+            Out-File -FilePath "$directory/$($file.filename)" -InputObject $file.contents -Force
+        }
+
+        $fontPath = Join-Path -Path "./fonts" -ChildPath $this.Path
+        $fontDirectory = Split-Path -Path $fontPath -Parent
+        New-Item -Path $fontDirectory -ItemType Directory -Force | Out-Null
+        $downloadResponse = Invoke-WebRequest -Uri $fileRef.url -OutFile $fontPath -PassThru
+        if ($downloadResponse.StatusCode -ne 200) {
+            Write-Error "Failed to download font file: $($downloadResponse.StatusCode) - $($downloadResponse.StatusDescription)" -ErrorAction Stop
+        }
+    }
+}
+
 class SongData {
     [ValidateNotNull()][double]$StartTime
     [ValidateNotNull()][double]$FadeInDuration
     [ValidateNotNull()][double]$FadeOutDuration
     [ValidateNotNull()][double]$Volume
+    [ValidateNotNull()][FontConfig[]]$Fonts
 }
 
 $global:SongDataDict = @{
@@ -18,6 +69,7 @@ $global:SongDataDict = @{
         FadeInDuration = 15.76 - 8.33
         FadeOutDuration = 6.39
         Volume = 0.85
+        Fonts = @([FontConfig]::New("Maiden_Orange/MaidenOrange-Regular.ttf"))
     }
 }
 
@@ -132,6 +184,10 @@ function Add-SwappedEd {
         Write-Error -Message "Song not defined '$songName'" -ErrorAction Stop
     }
 
+    foreach ($font in $songData.Fonts) {
+        $font.Install()
+    }
+
     $edTime = Get-EdTimestamp $episodePath
 
     $episodeFadeOutDuration = 0.2
@@ -139,7 +195,6 @@ function Add-SwappedEd {
 
     $episodeStreamId = 0
     $songStreamId = 1
-
 
     $arguments = @(
         "-i", $episodePath,
@@ -197,6 +252,7 @@ function Add-SwappedEd {
             "-codec:a:$audioStreamIdx", "copy",
             "-codec:a:$audioStreamId", "libvorbis",
             "-qscale:a:$audioStreamId", 3,
+
             "-metadata:s:a:$audioStreamId", "language=$($audioStream.tags.language)",
             "-metadata:s:a:$audioStreamId", "title=""Altered ED"""
         )
@@ -208,6 +264,11 @@ function Add-SwappedEd {
             $arguments += @("-disposition:a:$audioStreamIdx", "dub")
             $arguments += @("-disposition:a:$audioStreamId", "dub")
         }
+    }
+
+    $arguments += @("-metadata:s:t", "mimetype=application/x-truetype-font")
+    foreach ($font in $songData.Fonts) {
+        $arguments += @("-attach", "./fonts/$($font.Path)")
     }
 
     $arguments += "$outPath"
