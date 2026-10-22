@@ -21,6 +21,8 @@ $global:SongDataDict = @{
     }
 }
 
+$global:EdLength = 90
+
 function Get-EdTimestamp {
     [OutputType([double])]
     param(
@@ -37,16 +39,18 @@ function Get-EdTimestamp {
         -show_chapters `
         "$path" | ConvertFrom-Json).chapters
 
+    $edTimestampShift = -10 / 23.976
+
     foreach ($chapter in $chapters) {
         $title = $chapter.tags.title
         if ($title.ToLower() -ne "credits") { continue }
 
-        return [double]($chapter.start_time)
+        return [double]($chapter.start_time) + $edTimeStampShift
     }
 
     if ($chapters.Count -ge 2) {
         Write-Error -Message "Failed to find credits tag. Default to final chapter?" -ErrorAction Inquire
-        return [double]($chapters[$chapters.Count - 1].start_time)
+        return [double]($chapters[$chapters.Count - 1].start_time) + $edTimeStampShift
     } else {
         Write-Error -Message "Failed to find credits tag and fewer than two chapters defined" -ErrorAction Stop
     }
@@ -67,6 +71,30 @@ function Get-AudioStreamsInfo {
         -select_streams a `
         -show_streams `
         "$path" | ConvertFrom-Json).streams
+}
+
+function Export-Ed {
+    param(
+        [Parameter(Mandatory=$true)][String]$inPath,
+        [Parameter(Mandatory=$true)][String]$outPath
+    )
+
+    if (-not (Test-Path -Path $inPath -PathType Leaf)) {
+        Write-Error -Message "File not found '$inPath'" -ErrorAction Stop
+    }
+
+    $edTime = Get-EdTimestamp $inPath
+
+    $arguments = @(
+        "-ss", $edTime,
+        "-t", $global:EdLength,
+        "-i", $inPath,
+        "-codec", "copy",
+        "-map", 0,
+        $outPath
+    )
+
+    &"ffmpeg" $arguments
 }
 
 function Add-SwappedEd {
@@ -98,10 +126,7 @@ function Add-SwappedEd {
         Write-Error -Message "Song not defined '$songName'" -ErrorAction Stop
     }
 
-    $edTimestampShift = -10 / 23.976
-    $edTime = $(Get-EdTimestamp $episodePath) + $edTimestampShift
-
-    $edLength = 90
+    $edTime = Get-EdTimestamp $episodePath
 
     $episodeFadeOutDuration = 0.2
     $episodeFadeInDuration = 0.2
@@ -113,7 +138,7 @@ function Add-SwappedEd {
     $arguments = @(
         "-i", $episodePath,
         "-ss", $songData.StartTime,
-        "-t", $edLength,
+        "-t", $global:EdLength,
         "-i", $songPath
     )
 
@@ -121,7 +146,7 @@ function Add-SwappedEd {
         "[$($songStreamId):a]",
         (
             "afade=type=in:duration=$($songData.FadeInDuration):curve=qsin:unity=$($songData.Volume)," +
-            "afade=type=out:start_time=$($edLength - $songData.FadeOutDuration):duration=$($songData.FadeOutDuration):unity=$($songData.Volume)," +
+            "afade=type=out:start_time=$($global:EdLength - $songData.FadeOutDuration):duration=$($songData.FadeOutDuration):unity=$($songData.Volume)," +
             "adelay=delays=$($edTime * 1000):all=1," +
             "asplit=$($audioStreamsInfo.Count)"
         )
@@ -140,7 +165,7 @@ function Add-SwappedEd {
             "[episode_audio_$($audioStream.index)];",
 
             "[$audioStreamLabel]",
-            "afade=type=in:start_time=$($edTime + $edLength - $episodeFadeInDuration):duration=$episodeFadeInDuration",
+            "afade=type=in:start_time=$($edTime + $global:EdLength - $episodeFadeInDuration):duration=$episodeFadeInDuration",
             "[postcredits_audio_$($audioStream.index)];",
 
             "[episode_audio_$($audioStream.index)]", "[song_audio_$($audioStream.index)]", "[postcredits_audio_$($audioStream.index)]",
