@@ -4,11 +4,6 @@ function_description = "Replaces the ED with a different given one";
 require("karaskel");
 re = require("aegisub.re");
 
-local edStart = 1327 * 1000;
-local edLength = 90 * 1000;
-
-local songSubsFile = "../Wanted Dead or Alive.ass";
-
 local dialogueRe = re.compile(
     "^Dialogue: ([^,]*),(\\d+):(\\d{2}):(\\d{2}).(\\d{2})\\d*,(\\d+):(\\d{2}):(\\d{2}).(\\d{2})\\d*,([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),(.*)$");
 local styleRe = re.compile(
@@ -77,9 +72,11 @@ function get_line_object(string)
     return nil;
 end
 
-function overwrite_ed(subtitles)
+function overwrite_ed(subtitles, ed_subs_path, ed_start_time)
     local meta, styles = karaskel.collect_head(subtitles, true);
     local subtitle_count = #subtitles;
+
+    local ed_end_time = ed_start_time + 90;
 
     -- Remove all lines played during the ED
     local to_remove = {};
@@ -87,7 +84,7 @@ function overwrite_ed(subtitles)
         if line.class == "dialogue" and not line.comment then
             karaskel.preproc_line(subtitles, meta, styles, line);
 
-            if (line.start_time >= edStart) and (line.end_time <= edStart + edLength) then
+            if (line.start_time / 1000 >= ed_start_time) and (line.end_time / 1000 <= ed_end_time) then
                 aegisub.log(4, "Removing line %d: '%s'\n", idx, line.text);
                 table.insert(to_remove, idx);
             end
@@ -98,12 +95,16 @@ function overwrite_ed(subtitles)
 
     subtitles.delete(to_remove);
 
-    for line in io.lines(songSubsFile) do
+    for line in io.lines(ed_subs_path) do
         lineObject = get_line_object(line);
 
         if lineObject ~= nil then
             if lineObject.class == "dialogue" then
                 aegisub.log(4, "Appending line: %s\n", lineObject.text);
+
+                lineObject.start_time = lineObject.start_time + ed_start_time * 1000;
+                lineObject.end_time = lineObject.end_time + ed_start_time * 1000;
+
             elseif lineObject.class == "style" then
                 aegisub.log(4, "Appending style: %s\n", lineObject.name);
             else
@@ -116,7 +117,36 @@ function overwrite_ed(subtitles)
 end
 
 function overwrite_ed_filter(subtitles, settings)
-    overwrite_ed(subtitles);
+    overwrite_ed(subtitles, settings.ed_subs_path, settings.ed_start_time);
 end
 
-aegisub.register_filter(function_name, function_description, 100, overwrite_ed_filter, nil);
+function get_overwrite_ed_config_panel(subtitles, old_settings)
+    return {
+        {
+            class = "label",
+            label = "ED subs path",
+            x = 0, y = 0
+        },
+        {
+            class = "edit",
+            name = "ed_subs_path",
+            hint = "Absolute path to the ED ASS file",
+            value = old_settings.ed_subs_path,
+            x = 1, y = 0, width = 30
+        },
+        {
+            class = "label",
+            label = "ED start time [s]",
+            x = 0, y = 1
+        },
+        {
+            class = "floatedit",
+            name = "ed_start_time",
+            value = old_settings.ed_start_time,
+            min = 0.0, max = 60 * 60 * 60, step = 0.01,
+            x = 1, y = 1, width = 10
+        }
+    };
+end
+
+aegisub.register_filter(function_name, function_description, 100, overwrite_ed_filter, get_overwrite_ed_config_panel);
