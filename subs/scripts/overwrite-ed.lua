@@ -116,6 +116,29 @@ function overwrite_ed(subtitles, ed_subs_path, ed_start_time)
     end
 end
 
+function overwrite_ed_macro(subtitles, selected_lines, active_line)
+    accepted, settings = aegisub.dialog.display({
+        {
+            class = "label",
+            label = "ED start time [s]",
+            x = 0, y = 0
+        },
+        {
+            class = "floatedit",
+            name = "ed_start_time",
+            value = 0.0,
+            min = 0.0, max = 60 * 60 * 60, step = 0.01,
+            x = 1, y = 0, width = 10
+        }
+    });
+
+    if accepted then
+        local ed_subs_path = aegisub.dialog.open("Select ED subtitle file", "", "", "*.ass");
+
+        overwrite_ed(subtitles, ed_subs_path, settings.ed_start_time)
+    end
+end
+
 function overwrite_ed_filter(subtitles, settings)
     overwrite_ed(subtitles, settings.ed_subs_path, settings.ed_start_time);
 end
@@ -149,4 +172,5 @@ function get_overwrite_ed_config_panel(subtitles, old_settings)
     };
 end
 
+aegisub.register_macro(function_name, function_description, overwrite_ed_macro);
 aegisub.register_filter(function_name, function_description, 100, overwrite_ed_filter, get_overwrite_ed_config_panel);
