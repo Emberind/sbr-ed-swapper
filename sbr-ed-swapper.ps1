@@ -41,9 +41,15 @@ function Get-EdTimestamp {
 
     $edTimestampShift = -10 / 23.976
 
+    $edChapterNames = @(
+        "credits",
+        "ed",
+        "ending"
+    )
+
     foreach ($chapter in $chapters) {
         $title = $chapter.tags.title
-        if ($title.ToLower() -ne "credits") { continue }
+        if (-not ($edChapterNames -contains $title.ToLower())) { continue }
 
         return [double]($chapter.start_time) + $edTimeStampShift
     }
