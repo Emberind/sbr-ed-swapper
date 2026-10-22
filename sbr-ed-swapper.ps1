@@ -405,6 +405,8 @@ function Add-SwappedEd {
 
     Write-Host "ffmpeg $arguments"
     &"ffmpeg" $arguments
+
+    Remove-Item -Path "./.temp/" -Recurse -ErrorAction SilentlyContinue
 }
 
 if ($EpisodePath -ne "") {
