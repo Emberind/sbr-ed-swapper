@@ -122,7 +122,7 @@ function Add-SwappedEd {
         (
             "afade=type=in:duration=$($songData.FadeInDuration):curve=qsin:unity=$($songData.Volume)," +
             "afade=type=out:start_time=$($edLength - $songData.FadeOutDuration):duration=$($songData.FadeOutDuration):unity=$($songData.Volume)," +
-            "adelay=delays=$($edTime * 1000):all=1,",
+            "adelay=delays=$($edTime * 1000):all=1," +
             "asplit=$($audioStreamsInfo.Count)"
         )
     )
